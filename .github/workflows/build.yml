@@ -118,8 +118,18 @@ jobs:
             sleep 30
           done
 
+      - name: Find APK location
+        run: |
+          echo "===== 查找所有APK文件 ====="
+          find build -name "*.apk" 2>/dev/null || echo "build目录下没找到"
+          find . -name "*.apk" 2>/dev/null | grep -v node_modules || echo "全局没找到"
+
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: screenshare-release
-          path: build/app/outputs/flutter-apk/app-release.apk
+          path: |
+            build/app/outputs/flutter-apk/*.apk
+            build/app/outputs/apk/**/*.apk
+            **/*.apk
+          if-no-files-found: warn
