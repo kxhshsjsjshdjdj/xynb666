@@ -72,8 +72,7 @@ jobs:
                   android:name="${applicationName}"
                   android:icon="@mipmap/ic_launcher"
                   android:hardwareAccelerated="true"
-                  android:usesCleartextTraffic="true"
-                  android:requestLegacyExternalStorage="true">
+                  android:usesCleartextTraffic="true">
                   <activity
                       android:name=".MainActivity"
                       android:exported="true"
@@ -92,7 +91,7 @@ jobs:
                   </activity>
 
                   <service
-                      android:name="com.cloudwebrtc.webrtc.ForegroundService"
+                      android:name="com.cloudwebrtc.webrtc.MediaProjectionService"
                       android:foregroundServiceType="mediaProjection"
                       android:exported="false" />
 
