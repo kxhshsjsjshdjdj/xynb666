@@ -5,7 +5,7 @@ plugins {
 }
 
 android {
-    namespace "com.screenshare.app"
+    namespace = "com.screenshare.app"
     compileSdk = 34
     ndkVersion = flutter.ndkVersion
 
@@ -15,11 +15,11 @@ android {
     }
 
     kotlinOptions {
-        jvmTarget = "1.8"
+        jvmTarget = JavaVersion.VERSION_1_8
     }
 
     defaultConfig {
-        applicationId "com.screenshare.app"
+        applicationId = "com.screenshare.app"
         minSdk = 21
         targetSdk = 34
         versionCode = flutter.versionCode
@@ -30,20 +30,10 @@ android {
     buildTypes {
         release {
             signingConfig signingConfigs.debug
-            minifyEnabled false
-            shrinkResources false
-        }
-        debug {
-            applicationIdSuffix ""
         }
     }
 }
 
 flutter {
     source = "../.."
-}
-
-dependencies {
-    implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk8:$kotlin_version"
-    implementation 'androidx.multidex:multidex:2.0.1'
 }
