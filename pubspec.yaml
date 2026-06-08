@@ -1,0 +1,38 @@
+name: screenshare_app
+description: 实时屏幕共享应用
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+  flutter: ">=3.10.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # WebRTC 核心（支持安卓5+，原生MediaProjection）
+  flutter_webrtc: ^0.10.6
+
+  # Socket.io 信令
+  socket_io_client: ^2.0.3+1
+
+  # 权限请求
+  permission_handler: ^11.3.0
+
+  # 唯一ID生成
+  uuid: ^4.3.3
+
+  # 本地存储
+  shared_preferences: ^2.2.3
+
+  # 界面图标
+  cupertino_icons: ^1.0.6
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.0
+
+flutter:
+  uses-material-design: true
