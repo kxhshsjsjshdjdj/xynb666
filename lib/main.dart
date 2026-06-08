@@ -1,9 +1,9 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'dart:ui';
 import 'screens/home_screen.dart';
 import 'utils/constants.dart';
 
@@ -13,20 +13,18 @@ void main() async {
   // ===== 全局崩溃捕获，自动上报到服务器 =====
   FlutterError.onError = (FlutterErrorDetails details) {
     FlutterError.presentError(details);
-    _reportCrash(
+    _reportCrashSync(
       details.exceptionAsString(),
       details.stack?.toString() ?? '无堆栈',
       'FlutterError',
     );
   };
 
-  // 捕获异步错误和原生层错误
   PlatformDispatcher.instance.onError = (error, stack) {
-    _reportCrash(error.toString(), stack.toString(), 'PlatformError');
+    _reportCrashSync(error.toString(), stack.toString(), 'PlatformError');
     return true;
   };
 
-  // 在 runZonedGuarded 中运行，捕获所有未处理异常
   runZonedGuarded(() async {
     await SystemChrome.setPreferredOrientations([
       DeviceOrientation.portraitUp,
@@ -41,16 +39,21 @@ void main() async {
 
     runApp(const ScreenShareApp());
   }, (error, stack) {
-    _reportCrash(error.toString(), stack.toString(), 'ZoneError');
+    _reportCrashSync(error.toString(), stack.toString(), 'ZoneError');
   });
 }
 
-// 上报崩溃日志到服务器
-Future<void> _reportCrash(String error, String stack, String type) async {
+// 全局可调用的上报函数
+Future<void> reportError(String error, String stack, String type) async {
+  await _reportCrashSync(error, stack, type);
+}
+
+// 同步阻塞上报，确保请求发出后再继续
+Future<void> _reportCrashSync(String error, String stack, String type) async {
   try {
     final url = '${AppConfig.signalServer}/crash-report';
     final client = HttpClient();
-    client.connectionTimeout = const Duration(seconds: 5);
+    client.connectionTimeout = const Duration(seconds: 8);
 
     final request = await client.postUrl(Uri.parse(url));
     request.headers.contentType = ContentType.json;
@@ -68,6 +71,8 @@ Future<void> _reportCrash(String error, String stack, String type) async {
     final response = await request.close();
     await response.drain();
     client.close();
+
+    await Future.delayed(const Duration(milliseconds: 500));
     print('[CrashReport] 已上报: $type');
   } catch (e) {
     print('[CrashReport] 上报失败: $e');
