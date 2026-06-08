@@ -5,6 +5,7 @@ import '../utils/constants.dart';
 import '../utils/signaling_service.dart';
 import '../utils/webrtc_manager.dart';
 import '../models/peer_model.dart';
+import '../main.dart';
 
 class RoomScreen extends StatefulWidget {
   final String roomId;
@@ -89,8 +90,9 @@ class _RoomScreenState extends State<RoomScreen> {
       });
 
       _showToast('已进入房间 ${widget.roomId}', isSuccess: true);
-    } catch (e) {
+    } catch (e, stack) {
       _showToast('无法连接服务器，请检查网络');
+      await reportError(e.toString(), stack.toString(), '连接服务器错误');
     }
   }
 
@@ -157,39 +159,39 @@ class _RoomScreenState extends State<RoomScreen> {
   }
 
   Future<void> _startSharing() async {
-  if (!_connected) { _showToast('请等待连接成功'); return; }
-  setState(() => _isConnecting = true);
+    if (!_connected) { _showToast('请等待连接成功'); return; }
+    setState(() => _isConnecting = true);
 
-  try {
-    final stream = await navigator.mediaDevices.getDisplayMedia({
-      'video': true,
-      'audio': false,
-    });
+    try {
+      final stream = await navigator.mediaDevices.getDisplayMedia({
+        'video': true,
+        'audio': false,
+      });
 
-    _localStream = stream;
-    setState(() {
-      _localRenderer.srcObject = stream;
-      _isSharing = true;
-      _isConnecting = false;
-    });
+      _localStream = stream;
+      setState(() {
+        _localRenderer.srcObject = stream;
+        _isSharing = true;
+        _isConnecting = false;
+      });
 
-    _signaling.send('start-share', {
-      'roomId': widget.roomId,
-      'userName': widget.userName,
-    });
+      _signaling.send('start-share', {
+        'roomId': widget.roomId,
+        'userName': widget.userName,
+      });
 
-    final viewerIds = _peers.map((p) => p.peerId).toList();
-    if (viewerIds.isNotEmpty && _webrtc != null) {
-      await _webrtc!.startSharing(stream, viewerIds);
+      final viewerIds = _peers.map((p) => p.peerId).toList();
+      if (viewerIds.isNotEmpty && _webrtc != null) {
+        await _webrtc!.startSharing(stream, viewerIds);
+      }
+
+      stream.getVideoTracks().first.onEnded = () { _stopSharing(); };
+      _showToast('屏幕共享已开启', isSuccess: true);
+    } catch (e, stack) {
+      setState(() => _isConnecting = false);
+      _showToast('屏幕共享失败: $e');
+      await reportError(e.toString(), stack.toString(), '屏幕共享错误');
     }
-
-    stream.getVideoTracks().first.onEnded = () { _stopSharing(); };
-    _showToast('屏幕共享已开启', isSuccess: true);
-  } catch (e) {
-    setState(() => _isConnecting = false);
-    _showToast('屏幕共享失败: $e');
-    print('屏幕共享错误详情: $e');
-  }
   }
 
   Future<void> _stopSharing() async {
