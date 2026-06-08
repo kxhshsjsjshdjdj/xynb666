@@ -111,7 +111,6 @@ class _RoomScreenState extends State<RoomScreen> {
       setState(() => _peers.add(PeerModel(peerId: peerId, userName: userName)));
       _showToast('$userName 加入了房间');
 
-      // 如果我在共享，主动向新用户推流
       if (_isSharing && _webrtc != null) {
         _webrtc!.offerToPeer(peerId);
       }
@@ -157,21 +156,22 @@ class _RoomScreenState extends State<RoomScreen> {
     ).userName;
   }
 
-  // ===== 核心：安卓原生屏幕共享 =====
   Future<void> _startSharing() async {
     if (!_connected) { _showToast('请等待连接成功'); return; }
     setState(() => _isConnecting = true);
 
     try {
-      // flutter_webrtc 原生调用 MediaProjection API
-      // 会自动弹出系统级"开始录制屏幕"权限框
-      // 支持安卓5.0+ 全部机型
+      // 启动前台服务（安卓10+必须，否则崩溃）
+      try {
+        const platform = MethodChannel('FlutterForegroundService');
+        await platform.invokeMethod('startService');
+      } catch (e) {
+        print('前台服务启动失败（可忽略）: $e');
+      }
+
+      // 调用原生 MediaProjection（系统会弹出权限框）
       final stream = await navigator.mediaDevices.getDisplayMedia({
-        'video': {
-          'width': {'ideal': 1280},
-          'height': {'ideal': 720},
-          'frameRate': {'ideal': 15, 'max': 30},
-        },
+        'video': true,
         'audio': false,
       });
 
@@ -182,19 +182,16 @@ class _RoomScreenState extends State<RoomScreen> {
         _isConnecting = false;
       });
 
-      // 通知其他成员
       _signaling.send('start-share', {
         'roomId': widget.roomId,
         'userName': widget.userName,
       });
 
-      // 向所有在线成员推流
       final viewerIds = _peers.map((p) => p.peerId).toList();
       if (viewerIds.isNotEmpty && _webrtc != null) {
         await _webrtc!.startSharing(stream, viewerIds);
       }
 
-      // 监听用户从系统通知栏停止共享
       stream.getVideoTracks().first.onEnded = () {
         _stopSharing();
       };
@@ -208,6 +205,7 @@ class _RoomScreenState extends State<RoomScreen> {
       } else {
         _showToast('无法启动屏幕共享: $msg');
       }
+      print('屏幕共享错误详情: $e');
     }
   }
 
@@ -354,7 +352,6 @@ class _RoomScreenState extends State<RoomScreen> {
 
   Widget _buildScreenArea() {
     if (_hasRemoteStream && !_isSharing) {
-      // 观看远端共享
       return Stack(
         children: [
           Container(color: Colors.black, child: RTCVideoView(_remoteRenderer, objectFit: RTCVideoViewObjectFit.RTCVideoViewObjectFitContain)),
@@ -365,7 +362,6 @@ class _RoomScreenState extends State<RoomScreen> {
         ],
       );
     } else if (_isSharing && _localStream != null) {
-      // 自己共享中
       return Stack(
         children: [
           Container(color: Colors.black, child: RTCVideoView(_localRenderer, objectFit: RTCVideoViewObjectFit.RTCVideoViewObjectFitContain, mirror: false)),
@@ -376,7 +372,6 @@ class _RoomScreenState extends State<RoomScreen> {
         ],
       );
     } else {
-      // 等待状态
       return Container(
         color: Colors.black,
         child: Center(
@@ -433,7 +428,6 @@ class _RoomScreenState extends State<RoomScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // 共享按钮
           SizedBox(
             width: double.infinity,
             child: _isSharing
@@ -445,17 +439,14 @@ class _RoomScreenState extends State<RoomScreen> {
           ),
           const SizedBox(height: 14),
 
-          // 成员列表
           const Text('房间成员', style: TextStyle(
             color: AppColors.textMuted, fontSize: 12,
             fontWeight: FontWeight.w600, letterSpacing: 0.5,
           )),
           const SizedBox(height: 8),
 
-          // 自己
           _buildMemberItem(widget.userName, isMe: true, isSharing: _isSharing, isHost: widget.isHost),
 
-          // 其他成员
           ..._peers.map((p) => _buildMemberItem(
             p.userName, isSharing: p.isSharing,
           )),
