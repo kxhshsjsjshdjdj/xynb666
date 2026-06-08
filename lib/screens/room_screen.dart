@@ -157,56 +157,39 @@ class _RoomScreenState extends State<RoomScreen> {
   }
 
   Future<void> _startSharing() async {
-    if (!_connected) { _showToast('请等待连接成功'); return; }
-    setState(() => _isConnecting = true);
+  if (!_connected) { _showToast('请等待连接成功'); return; }
+  setState(() => _isConnecting = true);
 
-    try {
-      // 启动前台服务（安卓10+必须，否则崩溃）
-      try {
-        const platform = MethodChannel('FlutterForegroundService');
-        await platform.invokeMethod('startService');
-      } catch (e) {
-        print('前台服务启动失败（可忽略）: $e');
-      }
+  try {
+    final stream = await navigator.mediaDevices.getDisplayMedia({
+      'video': true,
+      'audio': false,
+    });
 
-      // 调用原生 MediaProjection（系统会弹出权限框）
-      final stream = await navigator.mediaDevices.getDisplayMedia({
-        'video': true,
-        'audio': false,
-      });
+    _localStream = stream;
+    setState(() {
+      _localRenderer.srcObject = stream;
+      _isSharing = true;
+      _isConnecting = false;
+    });
 
-      _localStream = stream;
-      setState(() {
-        _localRenderer.srcObject = stream;
-        _isSharing = true;
-        _isConnecting = false;
-      });
+    _signaling.send('start-share', {
+      'roomId': widget.roomId,
+      'userName': widget.userName,
+    });
 
-      _signaling.send('start-share', {
-        'roomId': widget.roomId,
-        'userName': widget.userName,
-      });
-
-      final viewerIds = _peers.map((p) => p.peerId).toList();
-      if (viewerIds.isNotEmpty && _webrtc != null) {
-        await _webrtc!.startSharing(stream, viewerIds);
-      }
-
-      stream.getVideoTracks().first.onEnded = () {
-        _stopSharing();
-      };
-
-      _showToast('屏幕共享已开启', isSuccess: true);
-    } catch (e) {
-      setState(() => _isConnecting = false);
-      final msg = e.toString();
-      if (msg.contains('denied') || msg.contains('cancel')) {
-        _showToast('屏幕共享权限被拒绝');
-      } else {
-        _showToast('无法启动屏幕共享: $msg');
-      }
-      print('屏幕共享错误详情: $e');
+    final viewerIds = _peers.map((p) => p.peerId).toList();
+    if (viewerIds.isNotEmpty && _webrtc != null) {
+      await _webrtc!.startSharing(stream, viewerIds);
     }
+
+    stream.getVideoTracks().first.onEnded = () { _stopSharing(); };
+    _showToast('屏幕共享已开启', isSuccess: true);
+  } catch (e) {
+    setState(() => _isConnecting = false);
+    _showToast('屏幕共享失败: $e');
+    print('屏幕共享错误详情: $e');
+  }
   }
 
   Future<void> _stopSharing() async {
