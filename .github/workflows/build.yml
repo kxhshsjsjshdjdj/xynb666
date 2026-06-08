@@ -3,6 +3,7 @@ name: Build Flutter Android APK
 on:
   push:
     branches: [ main ]
+  workflow_dispatch:
 
 jobs:
   build:
@@ -25,6 +26,38 @@ jobs:
 
       - name: Create android folder automatically
         run: flutter create --platforms=android --org=com.screenshare --project-name=screenshare_app .
+
+      - name: Use Aliyun Gradle mirror
+        run: |
+          # 替换 gradle 下载源为阿里云镜像
+          sed -i 's|services.gradle.org/distributions|mirrors.cloud.tencent.com/gradle|g' android/gradle/wrapper/gradle-wrapper.properties
+          cat android/gradle/wrapper/gradle-wrapper.properties
+
+      - name: Use China Maven mirrors
+        run: |
+          cat > android/build.gradle << 'EOF'
+          allprojects {
+              repositories {
+                  maven { url 'https://maven.aliyun.com/repository/google' }
+                  maven { url 'https://maven.aliyun.com/repository/central' }
+                  maven { url 'https://maven.aliyun.com/repository/gradle-plugin' }
+                  google()
+                  mavenCentral()
+              }
+          }
+
+          rootProject.buildDir = "../build"
+          subprojects {
+              project.buildDir = "${rootProject.buildDir}/${project.name}"
+          }
+          subprojects {
+              project.evaluationDependsOn(":app")
+          }
+
+          tasks.register("clean", Delete) {
+              delete rootProject.buildDir
+          }
+          EOF
 
       - name: Patch AndroidManifest for permissions
         run: |
@@ -68,16 +101,21 @@ jobs:
           </manifest>
           EOF
 
-      - name: Update minSdk to 21
+      - name: Update minSdk
         run: |
-          sed -i 's/minSdk = flutter.minSdkVersion/minSdk = 21/g' android/app/build.gradle.kts || true
-          sed -i 's/minSdkVersion flutter.minSdkVersion/minSdkVersion 21/g' android/app/build.gradle || true
+          sed -i 's/minSdk = flutter.minSdkVersion/minSdk = 21/g' android/app/build.gradle.kts 2>/dev/null || true
+          sed -i 's/minSdkVersion flutter.minSdkVersion/minSdkVersion 21/g' android/app/build.gradle 2>/dev/null || true
 
       - name: Install dependencies
         run: flutter pub get
 
-      - name: Build APK
-        run: flutter build apk --release --no-tree-shake-icons
+      - name: Build APK with retry
+        run: |
+          for i in 1 2 3; do
+            flutter build apk --release --no-tree-shake-icons && break
+            echo "Build attempt $i failed, retrying in 30 seconds..."
+            sleep 30
+          done
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
