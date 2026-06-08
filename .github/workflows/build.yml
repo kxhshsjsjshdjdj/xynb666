@@ -27,12 +27,6 @@ jobs:
       - name: Create android folder automatically
         run: flutter create --platforms=android --org=com.screenshare --project-name=screenshare_app .
 
-      - name: Use Aliyun Gradle mirror
-        run: |
-          # 替换 gradle 下载源为阿里云镜像
-          sed -i 's|services.gradle.org/distributions|mirrors.cloud.tencent.com/gradle|g' android/gradle/wrapper/gradle-wrapper.properties
-          cat android/gradle/wrapper/gradle-wrapper.properties
-
       - name: Use China Maven mirrors
         run: |
           cat > android/build.gradle << 'EOF'
@@ -72,12 +66,14 @@ jobs:
               <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
               <uses-permission android:name="android.permission.WAKE_LOCK" />
               <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
+              <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
               <application
                   android:label="ScreenShare"
                   android:name="${applicationName}"
                   android:icon="@mipmap/ic_launcher"
                   android:hardwareAccelerated="true"
-                  android:usesCleartextTraffic="true">
+                  android:usesCleartextTraffic="true"
+                  android:requestLegacyExternalStorage="true">
                   <activity
                       android:name=".MainActivity"
                       android:exported="true"
@@ -94,6 +90,12 @@ jobs:
                           <category android:name="android.intent.category.LAUNCHER"/>
                       </intent-filter>
                   </activity>
+
+                  <service
+                      android:name="com.cloudwebrtc.webrtc.ForegroundService"
+                      android:foregroundServiceType="mediaProjection"
+                      android:exported="false" />
+
                   <meta-data
                       android:name="flutterEmbedding"
                       android:value="2" />
@@ -121,4 +123,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: screenshare-release
-          path: build/app/outputs/flutter-apk/app-release.apk
+          path: build/app/outputs/f
