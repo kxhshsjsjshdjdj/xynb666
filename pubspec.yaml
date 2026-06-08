@@ -12,7 +12,7 @@ dependencies:
     sdk: flutter
 
   # WebRTC 核心（支持安卓5+，原生MediaProjection）
-  flutter_webrtc: ^0.10.6
+  flutter_webrtc: 0.9.48+hotfix.1
 
   # Socket.io 信令
   socket_io_client: ^2.0.3+1
