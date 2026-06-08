@@ -1,24 +1,76 @@
+import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'screens/home_screen.dart';
+import 'utils/constants.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // 强制竖屏
-  await SystemChrome.setPreferredOrientations([
-    DeviceOrientation.portraitUp,
-    DeviceOrientation.portraitDown,
-  ]);
+  // ===== 全局崩溃捕获，自动上报到服务器 =====
+  FlutterError.onError = (FlutterErrorDetails details) {
+    FlutterError.presentError(details);
+    _reportCrash(
+      details.exceptionAsString(),
+      details.stack?.toString() ?? '无堆栈',
+      'FlutterError',
+    );
+  };
 
-  // 状态栏样式
-  SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
-    statusBarColor: Colors.transparent,
-    statusBarIconBrightness: Brightness.light,
-    systemNavigationBarColor: Color(0xFF0F0F1A),
-  ));
+  // 捕获异步错误和原生层错误
+  PlatformDispatcher.instance.onError = (error, stack) {
+    _reportCrash(error.toString(), stack.toString(), 'PlatformError');
+    return true;
+  };
 
-  runApp(const ScreenShareApp());
+  // 在 runZonedGuarded 中运行，捕获所有未处理异常
+  runZonedGuarded(() async {
+    await SystemChrome.setPreferredOrientations([
+      DeviceOrientation.portraitUp,
+      DeviceOrientation.portraitDown,
+    ]);
+
+    SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
+      statusBarColor: Colors.transparent,
+      statusBarIconBrightness: Brightness.light,
+      systemNavigationBarColor: Color(0xFF0F0F1A),
+    ));
+
+    runApp(const ScreenShareApp());
+  }, (error, stack) {
+    _reportCrash(error.toString(), stack.toString(), 'ZoneError');
+  });
+}
+
+// 上报崩溃日志到服务器
+Future<void> _reportCrash(String error, String stack, String type) async {
+  try {
+    final url = '${AppConfig.signalServer}/crash-report';
+    final client = HttpClient();
+    client.connectionTimeout = const Duration(seconds: 5);
+
+    final request = await client.postUrl(Uri.parse(url));
+    request.headers.contentType = ContentType.json;
+
+    final body = jsonEncode({
+      'type': type,
+      'error': error,
+      'stack': stack,
+      'time': DateTime.now().toIso8601String(),
+      'device': Platform.operatingSystem,
+      'osVersion': Platform.operatingSystemVersion,
+    });
+
+    request.write(body);
+    final response = await request.close();
+    await response.drain();
+    client.close();
+    print('[CrashReport] 已上报: $type');
+  } catch (e) {
+    print('[CrashReport] 上报失败: $e');
+  }
 }
 
 class ScreenShareApp extends StatelessWidget {
