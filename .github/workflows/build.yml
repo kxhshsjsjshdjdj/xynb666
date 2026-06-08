@@ -27,15 +27,6 @@ jobs:
       - name: Create android folder automatically
         run: flutter create --platforms=android --org=com.screenshare --project-name=screenshare_app .
 
-      - name: Use China Maven mirrors
-        run: |
-          cat > android/build.gradle << 'EOF'
-          allprojects {
-              repositories {
-                  maven { url 'https://maven.aliyun.com/...
-                  ...
-          EOF
-
       - name: Patch AndroidManifest for permissions
         run: |
           cat > android/app/src/main/AndroidManifest.xml << 'EOF'
@@ -72,12 +63,10 @@ jobs:
                           <category android:name="android.intent.category.LAUNCHER"/>
                       </intent-filter>
                   </activity>
-
                   <service
                       android:name="com.cloudwebrtc.webrtc.MediaProjectionService"
                       android:foregroundServiceType="mediaProjection"
                       android:exported="false" />
-
                   <meta-data
                       android:name="flutterEmbedding"
                       android:value="2" />
@@ -102,10 +91,7 @@ jobs:
           done
 
       - name: Find APK location
-        run: |
-          echo "===== 查找所有APK文件 ====="
-          find build -name "*.apk" 2>/dev/null || echo "build目录下没找到"
-          find . -name "*.apk" 2>/dev/null | grep -v node_modules || echo "全局没找到"
+        run: find . -name "*.apk" 2>/dev/null | grep -v node_modules || echo "没找到APK"
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
@@ -114,5 +100,4 @@ jobs:
           path: |
             build/app/outputs/flutter-apk/*.apk
             build/app/outputs/apk/**/*.apk
-            **/*.apk
           if-no-files-found: warn
